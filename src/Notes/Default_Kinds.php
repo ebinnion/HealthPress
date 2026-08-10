@@ -12,21 +12,29 @@ namespace HealthPress\Notes;
 /**
  * The starting vocabulary for the `hp_note_kind` taxonomy.
  *
- * Unlike `Default_Metrics`, this list is a *seed*, not a registry. A metric
- * term without a code-defined metric behind it would name something with no
- * fields, units, or bounds, which is why metrics are synced and cannot be
- * authored. A kind carries no schema at all — it is a label used for
- * filtering — so a kind added by hand in the term screen is perfectly valid,
- * and nothing needs to reconcile it back against this list.
+ * A *seed*, not a registry: this list is written to the taxonomy once, on
+ * activation, and the site owns the terms from then on.
  *
- * That is the whole reason notes need no `Registry_Sync` equivalent.
+ * What makes that safe is the direction of authority. A reading is written by
+ * code keyed on `$metric->slug`, so something has to be able to resolve that
+ * slug to a term on demand — which is what `Registry_Sync::ensure_term()` is
+ * for. Nothing ever resolves a kind slug to a term: a human picks a kind from
+ * the terms that already exist. So there is no code path to keep supplied, and
+ * adding or renaming a kind by hand is an ordinary thing to do rather than a
+ * way to produce a term nothing stands behind.
  */
 final class Default_Kinds {
 
 	/**
 	 * Returns the seeded kinds as slug => label, in display order.
 	 *
-	 * @return array<string, string>
+	 * The keys are the term slugs, and a caller must pass them to
+	 * `wp_insert_term()` explicitly rather than let WordPress derive one from
+	 * the label: `sanitize_title( 'Doctor’s note' )` is `doctors-note`, not
+	 * `doctor_note`, so a derived slug would seed a term that no later lookup
+	 * by key ever finds.
+	 *
+	 * @return array<string, string> Term slug => label.
 	 */
 	public static function all(): array {
 		return array(
