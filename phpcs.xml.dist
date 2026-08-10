@@ -1,0 +1,83 @@
+<?xml version="1.0"?>
+<ruleset name="HealthPress">
+	<description>Coding standards for the HealthPress plugin.</description>
+
+	<file>src</file>
+	<file>healthpress.php</file>
+	<file>uninstall.php</file>
+
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="basepath" value="."/>
+	<arg name="colors"/>
+	<arg name="parallel" value="8"/>
+	<arg value="sp"/>
+
+	<rule ref="WordPress">
+		<!--
+			PSR-4 autoloading requires class files to be named after the class
+			(Reading_Repository.php), not the WP core convention
+			(class-reading-repository.php). Class names stay Snake_Case.
+		-->
+		<exclude name="WordPress.Files.FileName"/>
+
+		<!--
+			Every exception this plugin throws reports a violated invariant in a
+			code-defined catalog — a duplicate unit slug, an inverted range. They
+			are developer-facing and thrown at boot, never rendered to a browser.
+			Escaping them would mean calling esc_html() inside Support/, Metrics/,
+			and Validation/, which are deliberately free of WordPress so the whole
+			rule set can be unit tested without a bootstrap.
+		-->
+		<exclude name="WordPress.Security.EscapeOutput.ExceptionNotEscaped"/>
+
+		<!--
+			This sniff is not generics-aware: it reads `@param list<Field> $fields`
+			against an `array` type hint and reports a mismatch. Degrading the
+			docblocks to bare `array` would lose the only place the element type
+			is written down.
+		-->
+		<exclude name="Squiz.Commenting.FunctionComment.IncorrectTypeHint"/>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<!--
+				Only global symbols and hook names are governed here. The "hp_"
+				prefix used for post types and meta keys is intentionally absent:
+				this sniff rejects it as too short, and it does not apply to
+				those strings anyway.
+			-->
+			<property name="prefixes" type="array">
+				<element value="healthpress"/>
+				<element value="HealthPress"/>
+				<element value="HEALTHPRESS_"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="healthpress"/>
+			</property>
+		</properties>
+	</rule>
+
+	<config name="minimum_wp_version" value="6.7"/>
+
+	<rule ref="PHPCompatibilityWP"/>
+	<config name="testVersion" value="8.2-"/>
+
+	<!--
+		PHPCompatibility predates enums and reports `$this` inside an enum method
+		as the PHP 5 "plain function" case. It is valid there — it refers to the
+		case instance — so the sniff is silenced for the enums only.
+	-->
+	<rule ref="PHPCompatibility.Variables.ForbiddenThisUseContexts">
+		<exclude-pattern>src/Metrics/Field_Type\.php</exclude-pattern>
+		<exclude-pattern>src/Support/Dimension\.php</exclude-pattern>
+	</rule>
+</ruleset>

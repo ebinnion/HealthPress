@@ -1,0 +1,37 @@
+/**
+ * Reading metabox.
+ */
+
+.hp-field {
+	margin: 0 0 1em;
+}
+
+.hp-field label {
+	display: inline-block;
+	margin-bottom: 0.25em;
+}
+
+.hp-field input[type="number"] {
+	width: 10em;
+}
+
+.hp-unit {
+	color: #646970;
+	font-weight: 400;
+}
+
+.hp-optional {
+	color: #646970;
+	font-style: italic;
+	font-weight: 400;
+}
+
+.hp-field .description {
+	display: block;
+	margin-top: 0.25em;
+}
+
+.hp-violations {
+	margin: 0.5em 0 0 1.5em;
+	list-style: disc;
+}

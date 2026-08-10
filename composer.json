@@ -1,0 +1,36 @@
+{
+	"name": "ericbinnion/healthpress",
+	"description": "Personal health metric tracking for WordPress.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"php": ">=8.2"
+	},
+	"require-dev": {
+		"yoast/wp-test-utils": "^1.2",
+		"wp-coding-standards/wpcs": "^3.1",
+		"phpcompatibility/phpcompatibility-wp": "^2.1",
+		"dealerdirect/phpcodesniffer-composer-installer": "^1.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"HealthPress\\": "src/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"HealthPress\\Tests\\": "tests/"
+		}
+	},
+	"config": {
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		},
+		"sort-packages": true
+	},
+	"scripts": {
+		"lint": "phpcs",
+		"fix": "phpcbf",
+		"test": "phpunit"
+	}
+}
