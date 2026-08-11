@@ -23,8 +23,15 @@ use HealthPress\Storage\Post_Type as Reading_Post_Type;
  *
  * `editor` is nonetheless absent. Notes hold pasted transcripts, and the block
  * editor would chop one into paragraph blocks and wrap it in comment
- * delimiters. Admin\Body_Metabox supplies a plain textarea instead, so what is
- * stored in `post_content` is what was pasted, byte for byte.
+ * delimiters. Admin\Body_Metabox supplies a plain textarea instead, so the body
+ * is stored as the flat text it was pasted as — line breaks and all — rather
+ * than as block markup.
+ *
+ * Not byte-exact, though: the body is sanitised with
+ * `sanitize_textarea_field()`, which HTML-encodes a lone `<` and drops anything
+ * that parses as a tag, so `HbA1c <5.7%` is stored as `HbA1c &lt;5.7%`. That is
+ * a deliberate trade — no stored note can carry markup even if something later
+ * renders it without escaping.
  *
  * `revisions` stays on: the body is the single source of truth, so being able
  * to recover the version before an accidental paste-over is cheap insurance.
