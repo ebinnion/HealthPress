@@ -37,7 +37,7 @@ use HealthPress\Validation\Reading_Validator;
  * anything derived from it is registered:
  *
  *     init:5   build the registries (this is when `healthpress_metrics` fires)
- *     init:10  register the post type and taxonomy
+ *     init:10  register the post types and taxonomies
  *     init:12  register the admin save handler and, in wp-admin, the screen
  */
 final class Plugin {
@@ -142,13 +142,23 @@ final class Plugin {
 	}
 
 	/**
-	 * Registers the post type and taxonomy.
+	 * Registers the reading and note post types and their taxonomies.
+	 *
+	 * Within each pair the taxonomy goes first, and that order is load-bearing:
+	 * a post type's `taxonomies` argument runs through
+	 * `register_taxonomy_for_object_type()`, which returns `false` without a
+	 * word if the taxonomy is not registered yet. Registering the post type
+	 * first would silently leave it with no taxonomies attached.
 	 */
 	public function register_object_types(): void {
 		( new Taxonomy() )->register();
 		( new Post_Type() )->register();
 
-		// Notes are independent of the metric registry, so they need no ordering.
+		/*
+		 * Notes read nothing from the metric registry, so the note pair needs no
+		 * ordering relative to the registries or to readings. The two lines
+		 * below are ordered relative to each other for the reason above.
+		 */
 		( new Note_Taxonomies() )->register();
 		( new Note_Post_Type() )->register();
 	}
