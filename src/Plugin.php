@@ -15,6 +15,8 @@ use HealthPress\Admin\Reading_Save_Handler;
 use HealthPress\Admin\Reading_Screen;
 use HealthPress\Admin\Submission_Store;
 use HealthPress\Metrics\Metric_Registry;
+use HealthPress\Notes\Post_Type as Note_Post_Type;
+use HealthPress\Notes\Taxonomies as Note_Taxonomies;
 use HealthPress\Rest\Metrics_Controller;
 use HealthPress\Rest\Readings_Controller;
 use HealthPress\Rest\Unit_Negotiator;
@@ -145,6 +147,10 @@ final class Plugin {
 	public function register_object_types(): void {
 		( new Taxonomy() )->register();
 		( new Post_Type() )->register();
+
+		// Notes are independent of the metric registry, so they need no ordering.
+		( new Note_Taxonomies() )->register();
+		( new Note_Post_Type() )->register();
 	}
 
 	/**
