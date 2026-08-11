@@ -15,6 +15,9 @@ use HealthPress\Admin\Reading_Save_Handler;
 use HealthPress\Admin\Reading_Screen;
 use HealthPress\Admin\Submission_Store;
 use HealthPress\Metrics\Metric_Registry;
+use HealthPress\Notes\Admin\Body_Metabox;
+use HealthPress\Notes\Admin\Kind_Metabox;
+use HealthPress\Notes\Admin\List_Table as Note_List_Table;
 use HealthPress\Notes\Post_Type as Note_Post_Type;
 use HealthPress\Notes\Taxonomies as Note_Taxonomies;
 use HealthPress\Rest\Metrics_Controller;
@@ -119,6 +122,13 @@ final class Plugin {
 		 * plugin load, well before translations may be requested.
 		 */
 		add_action( 'init', array( $this, 'register_save_handler' ), 12 );
+
+		/*
+		 * Notes read nothing from the metric registry, so this could run earlier.
+		 * It sits at 12 alongside the reading handler because both register
+		 * translated admin strings, and for no stronger reason than that.
+		 */
+		add_action( 'init', array( $this, 'register_note_admin' ), 12 );
 	}
 
 	/**
@@ -161,6 +171,27 @@ final class Plugin {
 		 */
 		( new Note_Taxonomies() )->register();
 		( new Note_Post_Type() )->register();
+	}
+
+	/**
+	 * Registers the notes admin.
+	 *
+	 * `Body_Metabox` is registered unconditionally for the same reason
+	 * `Reading_Save_Handler` is: `is_admin()` is false under WP-CLI, so gating it
+	 * would put the note save path out of reach of the integration suite. It
+	 * discriminates on its own nonce, so registering it everywhere is safe.
+	 *
+	 * The other two only draw things, so they stay admin-only.
+	 */
+	public function register_note_admin(): void {
+		( new Body_Metabox() )->register();
+
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		( new Kind_Metabox() )->register();
+		( new Note_List_Table() )->register();
 	}
 
 	/**

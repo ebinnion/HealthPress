@@ -12,6 +12,7 @@
 
 require_once __DIR__ . '/_harness.php';
 
+use HealthPress\Notes\Admin\Query_Filters;
 use HealthPress\Notes\Default_Kinds;
 use HealthPress\Notes\Kind_Seeder;
 use HealthPress\Notes\Post_Type;
@@ -156,5 +157,238 @@ $titleless = wp_insert_post(
 hp_is( 'publish', get_post_status( $titleless ), 'a titleless note still publishes' );
 
 wp_delete_post( (int) $titleless, true );
+
+hp_section( 'The save path, through the real edit form' );
+
+require_once ABSPATH . 'wp-admin/includes/admin.php';
+
+/**
+ * Deletes every note, so this section starts from a known state.
+ */
+function hp_reset_notes(): void {
+	$ids = get_posts(
+		array(
+			'post_type'      => Post_Type::SLUG,
+			'post_status'    => 'any',
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+		)
+	);
+
+	foreach ( $ids as $id ) {
+		wp_delete_post( (int) $id, true );
+	}
+}
+
+/**
+ * Submits the note edit form, exactly as wp-admin/post.php would.
+ *
+ * `edit_post()` is the highest fidelity reachable from the CLI: it runs
+ * `_wp_translate_postdata()`, `_wp_get_allowed_postdata()`, the real
+ * `wp_update_post()`, and the whole `save_post` chain. Only `redirect_post()`
+ * is skipped, because it exits.
+ *
+ * @param int                  $post_id Note being saved.
+ * @param array<string, mixed> $fields  POST fields merged over the base.
+ */
+function hp_submit_note( int $post_id, array $fields ): void {
+	$_POST = array_merge(
+		array(
+			'post_ID'            => $post_id,
+			'post_type'          => Post_Type::SLUG,
+			'post_title'         => 'Cardiology call',
+			'post_status'        => 'publish',
+			'publish'            => 'Publish',
+			'hp_note_body_nonce' => wp_create_nonce( 'hp_note_save_body' ),
+			'_wpnonce'           => wp_create_nonce( 'update-post_' . $post_id ),
+		),
+		$fields
+	);
+
+	$_REQUEST = $_POST;
+
+	edit_post( $_POST );
+
+	$_POST    = array();
+	$_REQUEST = array();
+}
+
+hp_reset_notes();
+
+$note_id = (int) wp_insert_post(
+	array(
+		'post_type'   => Post_Type::SLUG,
+		'post_status' => 'auto-draft',
+		'post_title'  => '',
+	)
+);
+
+$transcript = "Dr: How's the blood pressure?\nMe: It's been steady — around 118/76.";
+
+hp_submit_note( $note_id, array( 'hp_note_body' => $transcript ) );
+hp_no_db_error( 'saving a note runs without a database error' );
+
+hp_is( $transcript, get_post_field( 'post_content', $note_id ), 'the body lands in post_content unchanged (no angle brackets in it)' );
+hp_is( 'publish', get_post_status( $note_id ), 'the note publishes' );
+
+/*
+ * The apostrophes are the point. `wp_insert_post_data` hands over slashed data,
+ * so a mapper that forgets to re-slash loses a backslash on every save — and it
+ * takes a second save to expose it.
+ */
+hp_submit_note( $note_id, array( 'hp_note_body' => $transcript ) );
+hp_is( $transcript, get_post_field( 'post_content', $note_id ), 'the body survives a second save with its apostrophes intact' );
+
+/*
+ * Pins the accepted cost of sanitize_textarea_field() against real WordPress
+ * rather than the unit suite's port of it, so that if core's behaviour ever
+ * changes this fails here instead of silently altering stored notes.
+ */
+hp_submit_note( $note_id, array( 'hp_note_body' => 'HbA1c <5.7% and BP <120' ) );
+hp_is(
+	'HbA1c &lt;5.7% and BP &lt;120',
+	get_post_field( 'post_content', $note_id ),
+	'a bare < is stored HTML-encoded, as documented'
+);
+
+// A save carrying no body field must leave the stored body alone.
+hp_submit_note( $note_id, array() );
+hp_is(
+	'HbA1c &lt;5.7% and BP &lt;120',
+	get_post_field( 'post_content', $note_id ),
+	'a save with no body field leaves the body untouched'
+);
+
+hp_submit_note( $note_id, array( 'hp_note_body' => $transcript ) );
+
+hp_section( 'Kind assignment, saved entirely by core' );
+
+$kind = get_term_by( 'slug', 'transcript', Taxonomies::KIND );
+
+hp_submit_note(
+	$note_id,
+	array(
+		'hp_note_body' => $transcript,
+		'tax_input'    => array( Taxonomies::KIND => array( (string) $kind->term_id ) ),
+	)
+);
+
+hp_is(
+	array( 'transcript' ),
+	wp_get_object_terms( $note_id, Taxonomies::KIND, array( 'fields' => 'slugs' ) ),
+	'the kind select assigns exactly one term'
+);
+
+// The metabox's "None" option submits '0', which array_filter() drops.
+hp_submit_note(
+	$note_id,
+	array(
+		'hp_note_body' => $transcript,
+		'tax_input'    => array( Taxonomies::KIND => array( '0' ) ),
+	)
+);
+
+hp_is(
+	array(),
+	wp_get_object_terms( $note_id, Taxonomies::KIND, array( 'fields' => 'slugs' ) ),
+	'the None option clears the kind'
+);
+
+hp_section( 'Search and filtering' );
+
+$found = get_posts(
+	array(
+		'post_type'      => Post_Type::SLUG,
+		's'              => 'blood pressure',
+		'posts_per_page' => -1,
+		'fields'         => 'ids',
+	)
+);
+hp_no_db_error( 'searching notes runs without a database error' );
+hp_ok( in_array( $note_id, array_map( 'intval', $found ), true ), 'a note is found by a phrase in its body' );
+
+hp_is(
+	array(),
+	get_posts(
+		array(
+			'post_type'      => Post_Type::SLUG,
+			's'              => 'zzzznotpresent',
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+		)
+	),
+	'a phrase that is absent finds nothing'
+);
+
+/*
+ * Slugification, which the unit suite structurally cannot cover: its
+ * `sanitize_title` stub only lowercases, while the real function turns spaces
+ * into hyphens. A provider named with a space is the realistic case — "Dr Smith"
+ * is stored slugged `dr-smith`, and that is what the dropdown submits.
+ */
+$provider = wp_insert_term( 'Dr Smith', Taxonomies::PROVIDER );
+
+if ( ! is_wp_error( $provider ) ) {
+	wp_set_object_terms( $note_id, array( (int) $provider['term_id'] ), Taxonomies::PROVIDER );
+
+	hp_is( 'dr-smith', get_term( (int) $provider['term_id'], Taxonomies::PROVIDER )->slug, 'a provider name with a space is stored hyphenated' );
+
+	$by_provider = get_posts(
+		array(
+			'post_type'      => Post_Type::SLUG,
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'tax_query'      => Query_Filters::tax_query( array( Taxonomies::PROVIDER => 'Dr Smith' ) ),
+		)
+	);
+	hp_no_db_error( 'filtering by provider runs without a database error' );
+	hp_ok(
+		in_array( $note_id, array_map( 'intval', $by_provider ), true ),
+		'a note is found by filtering on the un-slugified provider name'
+	);
+
+	wp_delete_term( (int) $provider['term_id'], Taxonomies::PROVIDER );
+}
+
+// The "All" option in every filter dropdown submits 0, which must not filter.
+hp_is( array(), Query_Filters::tax_query( array( Taxonomies::KIND => '0' ) ), 'the All option produces no clause at all' );
+
+$occurred = substr( (string) get_post_field( 'post_date', $note_id ), 0, 10 );
+
+$in_range = get_posts(
+	array(
+		'post_type'      => Post_Type::SLUG,
+		'posts_per_page' => -1,
+		'fields'         => 'ids',
+		'date_query'     => Query_Filters::date_query(
+			array(
+				Query_Filters::FROM => $occurred,
+				Query_Filters::TO   => $occurred,
+			)
+		),
+	)
+);
+hp_no_db_error( 'a note date range runs without a database error' );
+hp_ok( in_array( $note_id, array_map( 'intval', $in_range ), true ), 'a single-day range includes a note recorded that day' );
+
+hp_is(
+	array(),
+	get_posts(
+		array(
+			'post_type'      => Post_Type::SLUG,
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'date_query'     => Query_Filters::date_query(
+				array(
+					Query_Filters::FROM => '1999-01-01',
+					Query_Filters::TO   => '1999-12-31',
+				)
+			),
+		)
+	),
+	'a range before the note excludes it'
+);
+
+hp_reset_notes();
 
 hp_done();
