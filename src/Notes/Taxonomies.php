@@ -19,8 +19,9 @@ namespace HealthPress\Notes;
  *
  * `query_var` is off on all three, matching the privacy posture of the post
  * type. That means `WP_Query` will not parse `?hp_note_kind=transcript` from a
- * URL — verified, not assumed — so `Admin\List_Table` translates these
- * parameters into an explicit `tax_query` itself. That single handler is what
+ * URL — verified, not assumed — so these parameters are translated into an
+ * explicit `tax_query` instead: `Admin\Query_Filters` builds the clauses and
+ * `Admin\List_Table` applies them on `pre_get_posts`. That one path is what
  * makes the filter dropdowns *and* the taxonomy columns' filter links work.
  */
 final class Taxonomies {
