@@ -1,0 +1,28 @@
+/**
+ * The note body metabox.
+ */
+
+.hp-note-import {
+	margin: 0 0 0.75em;
+}
+
+.hp-note-import .description {
+	display: inline-block;
+}
+
+/*
+ * Monospace because notes hold transcripts and pasted report text, where column
+ * alignment carries meaning that a proportional face destroys.
+ *
+ * `pre-wrap`, not `pre`: newlines are preserved either way, but `pre` would stop
+ * long lines wrapping and put a horizontal scrollbar under every paragraph of a
+ * transcript.
+ */
+.hp-note-body {
+	box-sizing: border-box;
+	width: 100%;
+	font-family: Menlo, Consolas, monaco, monospace;
+	font-size: 13px;
+	line-height: 1.6;
+	white-space: pre-wrap;
+}

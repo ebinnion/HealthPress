@@ -61,6 +61,55 @@ final class Body_Metabox {
 	public function register(): void {
 		add_action( 'add_meta_boxes_' . Post_Type::SLUG, array( $this, 'add' ) );
 		add_filter( 'wp_insert_post_data', array( $this, 'map_body' ), 10, 2 );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue' ) );
+	}
+
+	/**
+	 * Loads the import script and the textarea's styling.
+	 *
+	 * Gated to the note editor, mirroring `Admin\Reading_Screen`: neither asset
+	 * has anything to act on elsewhere, and the script looks up its two elements
+	 * by id, so loading it globally would be dead weight on every admin page.
+	 *
+	 * @param string $hook_suffix The current admin page.
+	 */
+	public function enqueue( string $hook_suffix ): void {
+		if ( ! in_array( $hook_suffix, array( 'post.php', 'post-new.php' ), true ) ) {
+			return;
+		}
+
+		$screen = get_current_screen();
+
+		if ( null === $screen || Post_Type::SLUG !== $screen->post_type ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'healthpress-note-form',
+			plugins_url( 'assets/admin/note-form.js', HEALTHPRESS_FILE ),
+			array(),
+			HEALTHPRESS_VERSION,
+			array(
+				'in_footer' => true,
+				'strategy'  => 'defer',
+			)
+		);
+
+		wp_enqueue_style(
+			'healthpress-note-form',
+			plugins_url( 'assets/admin/note-form.css', HEALTHPRESS_FILE ),
+			array(),
+			HEALTHPRESS_VERSION
+		);
+
+		wp_localize_script(
+			'healthpress-note-form',
+			'healthPressNotes',
+			array(
+				'confirmReplace' => __( 'Replace the note body with this file’s contents?', 'healthpress' ),
+				'readFailed'     => __( 'That file could not be read.', 'healthpress' ),
+			)
+		);
 	}
 
 	/**
@@ -91,8 +140,17 @@ final class Body_Metabox {
 			esc_html__( 'The file is read in your browser and never uploaded.', 'healthpress' )
 		);
 
+		/*
+		 * The id is NOT `hp-note-body`, deliberately. `add_meta_box()` uses its
+		 * own id for the wrapper `<div>` it prints around this callback, so a
+		 * textarea sharing that id loses `getElementById()` to the div — which
+		 * fails silently, because assigning `.value` to a div is legal and does
+		 * nothing. The import script selects on `name` instead for the same
+		 * reason: that is the identifier the save path already depends on, and it
+		 * cannot collide with a wrapper.
+		 */
 		printf(
-			'<textarea id="hp-note-body" name="%1$s" class="hp-note-body widefat" rows="24" spellcheck="true">%2$s</textarea>',
+			'<textarea id="hp-note-body-field" name="%1$s" class="hp-note-body widefat" rows="24" spellcheck="true">%2$s</textarea>',
 			esc_attr( self::FIELD ),
 			esc_textarea( $post->post_content )
 		);

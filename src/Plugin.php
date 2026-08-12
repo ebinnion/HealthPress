@@ -18,6 +18,7 @@ use HealthPress\Metrics\Metric_Registry;
 use HealthPress\Notes\Admin\Body_Metabox;
 use HealthPress\Notes\Admin\Kind_Metabox;
 use HealthPress\Notes\Admin\List_Table as Note_List_Table;
+use HealthPress\Notes\Admin\Menu as Note_Menu;
 use HealthPress\Notes\Post_Type as Note_Post_Type;
 use HealthPress\Notes\Taxonomies as Note_Taxonomies;
 use HealthPress\Rest\Metrics_Controller;
@@ -192,6 +193,7 @@ final class Plugin {
 
 		( new Kind_Metabox() )->register();
 		( new Note_List_Table() )->register();
+		( new Note_Menu() )->register();
 	}
 
 	/**
