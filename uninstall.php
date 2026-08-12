@@ -2,10 +2,15 @@
 /**
  * Uninstall routine.
  *
- * Removes this plugin's options. Readings and metric terms are deliberately
- * left in place — health data should not evaporate because someone fumbled a
- * deactivate. Opt into a full wipe by setting the
- * `healthpress_delete_data_on_uninstall` option to a truthy value first.
+ * Removes this plugin's options. Readings, notes, and their terms are
+ * deliberately left in place — health data should not evaporate because someone
+ * fumbled a deactivate.
+ *
+ * This docblock used to offer a `healthpress_delete_data_on_uninstall` option as
+ * an opt-in to a full wipe. Nothing ever read it, so it was documentation for a
+ * feature that did not exist; the claim is removed rather than implemented,
+ * because a switch that silently destroys health data deserves a deliberate
+ * design rather than being back-filled to match a stale comment.
  *
  * @package HealthPress
  */

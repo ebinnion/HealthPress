@@ -1,21 +1,25 @@
 === HealthPress ===
 Contributors: ericbinnion
-Tags: health, tracking, metrics, rest-api
+Tags: health, tracking, metrics, notes, rest-api
 Requires at least: 6.7
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Track personal health metrics — blood pressure, weight, sleep and more — with a
-typed data model and a REST API.
+typed data model and a REST API, alongside a searchable archive of notes.
 
 == Description ==
 
 HealthPress records health measurements the way a health platform does: a
 code-defined catalog of metric types, each with typed fields, canonical units,
 and sane bounds, accumulating readings over time.
+
+It also keeps **notes** — transcripts of calls, notes from a doctor, lab
+summaries — as a separate, searchable archive. Readings are numbers; notes are
+documents. They share a timeline by date and nothing else.
 
 = Recording a reading =
 
@@ -51,6 +55,46 @@ Conversion happens only at the REST boundary, resolved by *dimension*: a request
 for `?unit=lb,f` converts every mass field and every temperature field, and
 leaves unitless fields — such as a sleep quality score — untouched. Responses
 always report which unit their numbers are in.
+
+= Notes =
+
+**HealthPress → Notes** records documents rather than measurements: transcripts
+of calls, notes from a doctor, lab summaries, anything worth keeping and finding
+again. Notes are a searchable archive; they carry no numbers and no units.
+
+Each note is one `hp_note` post: the body is the post content, the date is
+`post_date_gmt` and means when the call or visit happened, and it is filed under
+three taxonomies — one **kind**, a **provider**, and any number of **tags**.
+
+The body is a plain textarea rather than the block editor, so a pasted
+transcript stays flat text instead of being chopped into paragraph blocks. It is
+not stored byte for byte, though: the text is sanitised, which removes anything
+that parses as a tag and HTML-encodes a lone `<`, so `HbA1c <5.7%` is stored as
+`HbA1c &lt;5.7%` and displays as it was typed. That is deliberate — no stored
+note can carry markup even if something later renders it without escaping.
+
+Kinds ship seeded (Transcript, Doctor's note, Lab summary, Personal log) and can
+be edited freely, unlike metrics. A kind has no schema behind it, and nothing
+resolves a kind slug in code — you pick one from the terms that exist — so
+there is nothing for the plugin to keep in step.
+
+= Importing a note =
+
+The Note box takes a `.txt` or `.md` file. **The file is read in your browser
+and never uploaded**: nothing reaches the server, nothing is added to the media
+library, and the text lands in the box where you can trim it before saving. If
+the box already has text, you are asked before it is replaced.
+
+= Finding a note =
+
+The search box on the notes list searches the body, because the body *is* the
+post content. Alongside it are filters for kind, provider, tag, and a date
+range, and each taxonomy column doubles as a filter link.
+
+Search is a substring match rather than a ranked one — Studio's SQLite backend
+has no full-text index — which is ample for a personal archive.
+
+Notes have no REST API yet. They are an admin-only feature for now.
 
 = Validation =
 
@@ -114,12 +158,51 @@ removing the term would silently detach the history. Those readings report as
 orphaned when read, and start working again the moment the metric is registered
 back.
 
+= I dated a note in the future and it vanished from the list. Where is it? =
+
+WordPress schedules any post dated in the future, so the note is there but its
+status is Scheduled — use the Scheduled link above the list. Notes deliberately
+leave this alone. A reading refuses a future date outright, because a
+measurement cannot have been taken yet; a note is just a document, and the date
+is yours to set.
+
+= Why is my note's `<` showing as `&lt;` in the database? =
+
+Because the body is sanitised on save, which encodes a lone `<` and strips
+anything that looks like a tag. It displays correctly wherever the plugin shows
+it. The trade buys a guarantee: no note can hold markup, so nothing can render
+one as HTML by accident.
+
 = Does uninstalling delete my data? =
 
-No. Uninstall removes only this plugin's options. To also remove readings, set
-the `healthpress_delete_data_on_uninstall` option to a truthy value first.
+No. Uninstall removes only this plugin's own options and leftover transients.
+Every reading and every note is left in place, along with their terms — health
+data should not evaporate because someone fumbled a deactivate.
+
+There is no supported way to make it delete them. Earlier versions of this file
+described a `healthpress_delete_data_on_uninstall` option, but nothing has ever
+read it, so setting it does nothing. To remove the data, delete the readings and
+notes from their list screens before uninstalling.
 
 == Changelog ==
+
+= 0.3.0 =
+* Added Notes: a searchable archive of documents — transcripts of calls, notes
+  from a doctor, lab summaries — filed by kind, provider, tag and date. Notes are
+  independent of readings; they share a timeline by date and nothing else.
+* A note's body is a plain textarea rather than the block editor, so a pasted
+  transcript stays flat text instead of being chopped into paragraph blocks. It
+  is sanitised on the way in, which encodes a lone `<` and strips anything
+  parsing as a tag, so no stored note can carry markup.
+* Text and markdown files can be imported into a note. The file is read in the
+  browser and never uploaded, so nothing reaches the server and nothing is added
+  to the media library.
+* Notes are searchable by body text from the list screen, and filterable by
+  kind, provider, tag and date range. Each taxonomy column doubles as a filter
+  link.
+* Note kinds ship seeded and stay editable, unlike metric terms: a kind carries
+  no schema, and nothing resolves a kind slug in code.
+* Notes have no REST API yet.
 
 = 0.2.0 =
 * Added an entry form to the reading screen: a metric selector, per-metric value
