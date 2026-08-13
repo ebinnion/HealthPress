@@ -11,7 +11,7 @@ namespace HealthPress\Admin;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use HealthPress\Rest\Permissions;
+use HealthPress\Support\Permissions;
 use HealthPress\Storage\Post_Type;
 use HealthPress\Storage\Reading_Repository;
 use HealthPress\Validation\Reading_Validator;
@@ -24,7 +24,7 @@ use WP_Post;
  *
  * This is what keeps the admin screen honest: it does not touch post meta or
  * terms itself, it validates and then hands a `Validated_Reading` to
- * `save()` — the same method REST uses.
+ * `save()` — the same method the CLI's `reading add` reaches through.
  */
 final class Reading_Save_Handler {
 
@@ -87,8 +87,8 @@ final class Reading_Save_Handler {
 
 		/*
 		 * The nonce is what says "the reading form was submitted", rather than
-		 * merely "this post was written". Every other write — REST, WP-CLI, and
-		 * this handler's own save() — has to fall straight through.
+		 * merely "this post was written". Every other write — the CLI, and this
+		 * handler's own save() — has to fall straight through.
 		 *
 		 * Deliberately not is_admin(): that is false under `wp eval-file`, which
 		 * would make this path untestable from the integration suite.

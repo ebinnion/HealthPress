@@ -370,20 +370,25 @@ clean_post_cache( $preexisting );
 
 hp_is( 'hp_incomplete_reading', $repo->get( $preexisting )->get_error_code(), 'a pre-existing hollow row is refused' );
 
-do_action( 'rest_api_init' );
+/*
+ * Read through the repository rather than the REST collection. These assertions
+ * were written against `/healthpress/v1/readings`, which no longer exists; what
+ * they were really checking is that a refused row is skipped on read, and the
+ * repository query is where that now happens — for the CLI and every listing
+ * alike.
+ */
+$listed = $repo->query( new Reading_Query( limit: 100 ) )->items();
+$ids    = array_map( static fn ( $r ): int => $r->id, $listed );
 
-$listing = rest_do_request( new WP_REST_Request( 'GET', '/healthpress/v1/readings' ) );
-$ids     = array_column( $listing->get_data(), 'id' );
-
-hp_ok( ! in_array( $preexisting, $ids, true ), 'and never reaches the REST collection' );
+hp_ok( ! in_array( $preexisting, $ids, true ), 'and never reaches a repository listing' );
 hp_ok( ! in_array( $legacy, $ids, true ), 'nor does the one core tried to publish' );
 
 $empty_values = array_filter(
-	$listing->get_data(),
-	static fn ( array $item ): bool => array() === (array) $item['values']
+	$listed,
+	static fn ( $r ): bool => array() === $r->values
 );
 
-hp_is( 0, count( $empty_values ), 'no reading in the collection has empty values' );
+hp_is( 0, count( $empty_values ), 'no reading in a listing has empty values' );
 
 hp_no_db_error( 'every admin operation ran cleanly' );
 

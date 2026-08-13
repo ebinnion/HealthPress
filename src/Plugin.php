@@ -21,9 +21,9 @@ use HealthPress\Notes\Admin\List_Table as Note_List_Table;
 use HealthPress\Notes\Admin\Menu as Note_Menu;
 use HealthPress\Notes\Post_Type as Note_Post_Type;
 use HealthPress\Notes\Taxonomies as Note_Taxonomies;
-use HealthPress\Rest\Metrics_Controller;
-use HealthPress\Rest\Readings_Controller;
-use HealthPress\Rest\Unit_Negotiator;
+use HealthPress\Cli\Metric_Command;
+use HealthPress\Cli\Note_Command;
+use HealthPress\Cli\Reading_Command;
 use HealthPress\Storage\Post_Reading_Repository;
 use HealthPress\Storage\Post_Type;
 use HealthPress\Storage\Publish_Guard;
@@ -112,7 +112,16 @@ final class Plugin {
 		add_action( 'init', array( $this, 'build_registries' ), 5 );
 		add_action( 'init', array( $this, 'register_object_types' ), 10 );
 		add_action( 'admin_init', array( $this, 'maybe_sync' ) );
-		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
+
+		/*
+		 * On init:12 rather than at plugin load, for the same reason as the save
+		 * handler below: the command classes are built from the metric registry,
+		 * whose labels are translated. Registering a command is cheap, but
+		 * WP_CLI must exist to register against.
+		 */
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			add_action( 'init', array( $this, 'register_cli_commands' ), 12 );
+		}
 
 		// Registered unconditionally: it guards every write path, not just admin.
 		( new Publish_Guard() )->register();
@@ -231,13 +240,17 @@ final class Plugin {
 	}
 
 	/**
-	 * Registers the REST controllers.
+	 * Registers the WP-CLI commands.
+	 *
+	 * The programmatic surface this plugin offers. It replaced a REST API, and
+	 * deliberately does less: read and create, no update or delete, because the
+	 * admin screens already do those well and every extra write path is another
+	 * place the validator can be bypassed.
 	 */
-	public function register_rest_routes(): void {
-		$negotiator = new Unit_Negotiator( $this->units() );
-
-		( new Metrics_Controller( $this->metrics(), $this->units() ) )->register_routes();
-		( new Readings_Controller( $this->metrics(), $this->readings(), $this->validator(), $negotiator ) )->register_routes();
+	public function register_cli_commands(): void {
+		Metric_Command::register( $this->metrics(), $this->units() );
+		Reading_Command::register( $this->metrics(), $this->readings(), $this->validator() );
+		Note_Command::register();
 	}
 
 	// -----------------------------------------------------------------

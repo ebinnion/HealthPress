@@ -15,8 +15,10 @@ use HealthPress\Metrics\Metric_Type;
 /**
  * One measurement, as read back from storage.
  *
- * Values are always in the field's canonical unit; conversion to whatever the
- * caller asked for happens at the REST boundary, not here.
+ * Values are always in the field's canonical unit, and nothing converts them
+ * any more. Conversion used to happen at the REST boundary, resolved by
+ * dimension; that boundary went with the REST API, so a reading is read back in
+ * the unit it was stored in and the CLI prints the unit alongside it.
  */
 final readonly class Reading {
 

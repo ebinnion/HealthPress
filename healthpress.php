@@ -3,7 +3,7 @@
  * Plugin Name:       HealthPress
  * Plugin URI:        https://github.com/ericbinnion/healthpress
  * Description:       Personal health metric tracking — a metric registry, readings, and a REST API.
- * Version:           0.3.0
+ * Version:           0.4.0
  * Requires at least: 6.7
  * Requires PHP:      8.2
  * Author:            Eric Binnion
@@ -36,7 +36,7 @@ if ( version_compare( PHP_VERSION, '8.2', '<' ) ) {
 	return;
 }
 
-define( 'HEALTHPRESS_VERSION', '0.3.0' );
+define( 'HEALTHPRESS_VERSION', '0.4.0' );
 define( 'HEALTHPRESS_FILE', __FILE__ );
 define( 'HEALTHPRESS_DIR', plugin_dir_path( __FILE__ ) );
 

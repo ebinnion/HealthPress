@@ -1,15 +1,15 @@
 === HealthPress ===
 Contributors: ericbinnion
-Tags: health, tracking, metrics, notes, rest-api
+Tags: health, tracking, metrics, notes, wp-cli
 Requires at least: 6.7
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 0.3.0
+Stable tag: 0.4.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Track personal health metrics — blood pressure, weight, sleep and more — with a
-typed data model and a REST API, alongside a searchable archive of notes.
+typed data model and a WP-CLI interface, alongside a searchable archive of notes.
 
 == Description ==
 
@@ -30,8 +30,8 @@ box's own date control — `post_date` *is* the timestamp.
 
 A reading that fails validation is **not saved**. It is left as a draft, the
 reasons are listed above the form, and the values you submitted are handed back
-so nothing has to be retyped. Drafts are invisible to the REST API, so **Save
-Draft** doubles as "hold this one back".
+so nothing has to be retyped. Drafts are skipped by every listing, so **Save Draft**
+doubles as "hold this one back".
 
 Editing a stored reading that already passed is safe: if the edit is refused,
 the stored values are left exactly as they were.
@@ -50,11 +50,14 @@ Both filter dimensions therefore land on indexed columns rather than on meta.
 
 = Units =
 
-Every field declares one canonical unit and readings are always stored in it.
-Conversion happens only at the REST boundary, resolved by *dimension*: a request
-for `?unit=lb,f` converts every mass field and every temperature field, and
-leaves unitless fields — such as a sleep quality score — untouched. Responses
-always report which unit their numbers are in.
+Every field declares one canonical unit and readings are always stored in it —
+kilograms, mmHg, degrees Celsius. Nothing converts them.
+
+Earlier versions converted at the REST boundary, resolved by dimension, so a
+request could ask for pounds. That boundary went with the REST API, and rather
+than move the conversion somewhere it had no caller, it was removed: the CLI
+prints canonical values and names the unit in its own column, so a number is
+never ambiguous about what it is measured in.
 
 = Notes =
 
@@ -94,32 +97,80 @@ range, and each taxonomy column doubles as a filter link.
 Search is a substring match rather than a ranked one — Studio's SQLite backend
 has no full-text index — which is ample for a personal archive.
 
-Notes have no REST API yet. They are an admin-only feature for now.
+Notes are reachable from the command line too — see the WP-CLI section.
 
 = Validation =
 
-All rules live in a single validator, so REST, the repository, and any future
-importer enforce exactly the same thing. Violations are collected rather than
-reported one at a time, so a rejected write explains everything that is wrong
-with it at once.
+All rules live in a single validator, so the admin form, the command line, the
+repository, and any future importer enforce exactly the same thing. Violations are
+collected rather than reported one at a time, so a rejected write explains
+everything that is wrong with it at once.
 
 Unknown field keys are rejected rather than ignored, so a typo fails loudly
 instead of silently recording nothing.
 
-== REST API ==
+== WP-CLI ==
 
-All routes require the `manage_options` capability.
+The plugin's programmatic surface. It requires the `manage_options` capability,
+same as everything else here.
 
-* `GET    /wp-json/healthpress/v1/metrics`
-* `GET    /wp-json/healthpress/v1/metrics/<slug>`
-* `GET    /wp-json/healthpress/v1/readings`
-* `POST   /wp-json/healthpress/v1/readings`
-* `GET    /wp-json/healthpress/v1/readings/latest?metric=<slug>`
-* `GET    /wp-json/healthpress/v1/readings/<id>`
-* `PUT`, `PATCH`, `DELETE` `/wp-json/healthpress/v1/readings/<id>`
+Read and create only. Editing and deleting stay in wp-admin, where what a record
+sits next to is on screen — and every extra write path is another place the
+validator could be bypassed.
 
-Collection parameters: `metric`, `after`, `before`, `per_page`, `page`, `order`,
-`unit`.
+= Readings =
+
+    wp healthpress metric list
+    wp healthpress reading list [--metric=<slug>] [--after=<date>] [--before=<date>]
+                               [--limit=<n>] [--offset=<n>] [--order=<asc|desc>]
+    wp healthpress reading get <id>
+    wp healthpress reading add --metric=<slug> --<field>=<value>... [--date=<date>]
+                               [--note=<text>] [--porcelain]
+
+Values are given one flag per field and are always in the field's canonical unit
+— `--value=72.5` for weight is kilograms. `wp healthpress metric list` shows
+which fields and units each metric takes.
+
+`reading add` goes through the same validator the admin form does, so a rejected
+write explains everything wrong with it at once and records nothing. A field flag
+that is not part of the metric is refused rather than ignored, so a typo fails
+loudly.
+
+    # Every weight reading ever recorded, as CSV.
+    wp healthpress reading list --metric=weight --limit=0 --format=csv
+
+`--limit=0` returns everything, paging internally. A single query is still capped
+at 100, which guards against an unbounded query rather than limiting an export.
+
+= Notes =
+
+    wp healthpress note list [--kind=<slug>] [--provider=<slug>] [--tag=<slug>]
+                             [--search=<text>] [--after=<date>] [--before=<date>]
+                             [--limit=<n>]
+    wp healthpress note get <id> [--body-only]
+    wp healthpress note add --title=<title> [--body=<text>] [--body-file=<path>]
+                            [--kind=<slug>] [--provider=<name>] [--tags=<list>]
+                            [--date=<date>] [--porcelain]
+
+    # Import a transcript from a file, the way the editor's import control does.
+    wp healthpress note add --title="Cardiology call" --body-file=transcript.txt --kind=transcript
+
+    # Pull one back out and pipe it.
+    wp healthpress note get 1597 --body-only | grep -i "blood pressure"
+
+A `--kind` must already exist, because kinds are a controlled vocabulary and an
+unrecognised one is a typo rather than a new kind. Providers and tags are created
+on demand, because those lists grow.
+
+Every command takes `--format=table|csv|json|yaml|count|ids`, and the list
+commands take `--fields=` to choose columns.
+
+= Notes on Studio =
+
+`studio wp` does not forward standard input, so piping a body in — `cat file | wp
+healthpress note add` — does not work there. Use `--body-file` instead, and note
+that the PHP runtime cannot read outside the site directory, so the file has to
+live inside it.
 
 == Extending ==
 
@@ -132,12 +183,16 @@ reading may carry.
 
 == Frequently Asked Questions ==
 
-= Why are readings not on /wp/v2? =
+= Why is there no REST API? =
 
-Exposing the post type there would create a second write path, straight to
-`wp_insert_post()`, that never reaches the validator. One write path means one
-place rules can be enforced. The admin screen goes through the same repository
-method the REST API does, for the same reason.
+There was one, and it was removed in 0.4.0 in favour of WP-CLI. For a single-user
+plugin on a site you administer, a shell is the more useful surface: it composes
+with `grep`, `jq` and a pipe, and it needs no authentication dance.
+
+Core's own `/wp/v2/hp_reading` is off for the reason the plugin's routes were
+careful in the first place — it writes straight to `wp_insert_post()` and never
+reaches the validator. The admin screens and `reading add` both go through the
+same repository method, so there is one place the rules live.
 
 = Why can't I add or rename a metric in the Metrics screen? =
 
@@ -185,6 +240,24 @@ read it, so setting it does nothing. To remove the data, delete the readings and
 notes from their list screens before uninstalling.
 
 == Changelog ==
+
+= 0.4.0 =
+* Removed the REST API. `healthpress/v1` and both its controllers are gone.
+* Added WP-CLI commands in their place: `wp healthpress metric list`, and
+  `list`, `get` and `add` for both readings and notes. Read and create only —
+  editing and deleting stay in wp-admin.
+* `reading add` goes through the same validator the admin form does, so the rules
+  live in one place. An unrecognised field flag is refused rather than ignored.
+* `note add` takes its body inline, from a file, or on standard input, and
+  sanitises it through the same code path the editor's metabox uses.
+* Readings are no longer unit-converted anywhere. Values were always stored
+  canonically and only converted at the REST boundary; with that boundary gone
+  the conversion had no caller, so it was removed rather than relocated. Output
+  names the unit alongside the number.
+* `reading list --limit=0` returns everything, paging internally rather than
+  lifting the per-query cap that guards against unbounded queries.
+* Added `cli` as a reading source. `api` is kept so readings written by the old
+  REST API still validate when read back.
 
 = 0.3.0 =
 * Added Notes: a searchable archive of documents — transcripts of calls, notes

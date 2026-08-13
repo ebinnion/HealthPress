@@ -601,7 +601,7 @@ final class Post_Reading_Repository implements Reading_Repository {
 	}
 
 	/**
-	 * Converts validation violations into a REST-ready error.
+	 * Converts validation violations into a `WP_Error`.
 	 *
 	 * This is the boundary the framework-free validator is deliberately kept
 	 * behind: `Violation` structs become `WP_Error` here and nowhere else.

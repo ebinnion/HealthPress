@@ -19,8 +19,8 @@ use InvalidArgumentException;
  *
  * Metric types are declared in code rather than authored as content, mirroring
  * how a health platform ships a fixed catalog of measurement types. Everything
- * downstream derives from this object: meta keys, validation rules, the REST
- * schema, and unit conversion.
+ * downstream derives from this object: meta keys, validation rules, the CLI's
+ * value flags, and the canonical unit each field is stored in.
  */
 final readonly class Metric_Type {
 

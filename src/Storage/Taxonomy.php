@@ -69,7 +69,7 @@ final class Taxonomy {
 				 */
 				'show_admin_column'  => true,
 
-				// Off for the same reason as the post type: one write path.
+				// Off for the same reason as the post type: no unvalidated write path.
 				'show_in_rest'       => false,
 
 				/*

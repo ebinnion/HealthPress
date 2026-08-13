@@ -9,6 +9,7 @@ declare( strict_types = 1 );
 
 namespace HealthPress\Notes\Admin;
 
+use HealthPress\Notes\Body;
 use HealthPress\Notes\Post_Type;
 use WP_Post;
 
@@ -163,8 +164,9 @@ final class Body_Metabox {
 	 * the site, so anything short of "this is a note, submitted through my own
 	 * form, by someone allowed to edit it" must leave `$data` untouched.
 	 *
-	 * `sanitize_textarea_field()` keeps newlines and tabs but is not byte-exact
-	 * — see `Notes\Post_Type` for what that costs and why it is worth it.
+	 * Sanitising goes through `Notes\Body`, which `note add` on the command line
+	 * also calls. Which sanitiser runs is a decision with a visible cost, so the
+	 * two write paths share one, rather than each holding its own copy of it.
 	 *
 	 * `$data` arrives slashed and is written to the database as given, so the
 	 * sanitised value is re-slashed on the way back in. Without that, every
@@ -216,8 +218,14 @@ final class Body_Metabox {
 			return $data;
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above.
-		$body = sanitize_textarea_field( wp_unslash( $_POST[ self::FIELD ] ) );
+		/*
+		 * The sniff cannot see through `Body::sanitize()` to the
+		 * `sanitize_textarea_field()` inside it, so it reads this as unsanitised
+		 * input. Sanitising is one call away on purpose: `note add` on the command
+		 * line makes the same call, and the two must not drift.
+		 */
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified above; sanitised by Notes\Body::sanitize().
+		$body = Body::sanitize( wp_unslash( $_POST[ self::FIELD ] ) );
 
 		$data['post_content'] = wp_slash( $body );
 

@@ -35,8 +35,13 @@ final class Reading_Validator {
 
 	/**
 	 * Recognised values for a reading's `source`.
+	 *
+	 * `cli` arrived with the WP-CLI commands that replaced the REST API. `api` is
+	 * kept rather than renamed: nothing writes it any more, but readings recorded
+	 * through the old API carry it, and removing the value would make those rows
+	 * fail validation when they are read back.
 	 */
-	public const SOURCES = array( 'manual', 'import', 'api' );
+	public const SOURCES = array( 'manual', 'import', 'api', 'cli' );
 
 	/**
 	 * Earliest year a reading may claim, guarding against epoch-zero mistakes.

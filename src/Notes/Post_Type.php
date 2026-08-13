@@ -82,7 +82,7 @@ final class Post_Type {
 				'rewrite'             => false,
 				'query_var'           => false,
 
-				// Admin-only for now. Adding REST later means adding a controller.
+				// The admin screens and the CLI are the whole surface; core's REST is not part of it.
 				'show_in_rest'        => false,
 				'supports'            => array( 'title', 'revisions' ),
 				'map_meta_cap'        => true,

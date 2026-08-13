@@ -474,6 +474,7 @@ final class ReadingValidatorTest extends TestCase {
 			'manual' => array( 'manual' ),
 			'import' => array( 'import' ),
 			'api'    => array( 'api' ),
+			'cli'    => array( 'cli' ),
 		);
 	}
 

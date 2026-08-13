@@ -57,8 +57,10 @@ final class Post_Type {
 				'menu_position'       => 30,
 
 				/*
-				 * Off deliberately: healthpress/v1 is the only write path, so
-				 * that every reading goes through Reading_Validator.
+				 * Off deliberately. This plugin exposes no REST API of its own any
+				 * more, so turning core's on would make `/wp/v2/hp_reading` the
+				 * only one — and it writes straight to `wp_insert_post()` without
+				 * ever reaching Reading_Validator.
 				 */
 				'show_in_rest'        => false,
 
